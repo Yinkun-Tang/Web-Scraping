@@ -1,0 +1,674 @@
+---
+title: "HW4"
+author: "Yinkun Tang"
+date: "2023-06-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+For this assignment, I use XML and RCurl library.
+
+```{r}
+# setup working directory
+setwd("D:/Yinkun/UC Davis - Yinkun Tang/Third Academic Year/Spring Quarter 2023/STA 141B/HW4F")
+library(XML)
+library(RCurl)
+```
+
+I use the similar methods as demonstrated in the lecture. That is, I design the similar procResult function to extract each attribute of question and use getPageResults function to seperate the content of each question.
+
+Here is the code for the first function set:
+
+```{r eval=FALSE, echo=TRUE}
+# question text
+procResult =
+  function(x)
+  {
+    user = xpathSApply(x, ".//a[@class='flex--item']", xmlValue, trim = TRUE)
+    if(length(user) == 0)
+      user = NA
+    
+    rep = xpathSApply(x, ".//span[starts-with(@title, 'reputation score ')]", xmlValue, trim = TRUE)
+    if(length(rep) == 0)
+      rep = NA
+    
+    list(question_title = xpathSApply(x, './/a[@class = "s-link"]', xmlValue, trim = TRUE),
+         question_text = xpathSApply(x, ".//div[@class = 's-post-summary--content-excerpt']", xmlValue, trim = TRUE),
+         tags = as.character(xpathSApply(x, ".//a[starts-with(@title, 'show questions tagged ')]", xmlValue, trim = TRUE)),
+         date = xpathSApply(x, ".//span[@class = 'relativetime']/@title")[[1]],
+         username = user,
+         reputation_score = rep,
+         answerURL = xpathSApply(x, ".//a[@class = 's-link']/@href")
+    )
+  }
+
+getPageResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class = 's-post-summary--content']", procResult)
+  }
+```
+
+```{r}
+# question text
+procResult =
+  function(x)
+  {
+    user = xpathSApply(x, ".//a[@class='flex--item']", xmlValue, trim = TRUE)
+    if(length(user) == 0)
+      user = NA
+    
+    rep = xpathSApply(x, ".//span[starts-with(@title, 'reputation score ')]", xmlValue, trim = TRUE)
+    if(length(rep) == 0)
+      rep = NA
+    
+    list(question_title = xpathSApply(x, './/a[@class = "s-link"]', xmlValue, trim = TRUE),
+         question_text = xpathSApply(x, ".//div[@class = 's-post-summary--content-excerpt']", xmlValue, trim = TRUE),
+         tags = as.character(xpathSApply(x, ".//a[starts-with(@title, 'show questions tagged ')]", xmlValue, trim = TRUE)),
+         date = xpathSApply(x, ".//span[@class = 'relativetime']/@title")[[1]],
+         username = user,
+         reputation_score = rep,
+         answerURL = xpathSApply(x, ".//a[@class = 's-link']/@href")
+    )
+  }
+
+getPageResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class = 's-post-summary--content']", procResult)
+  }
+```
+
+Since the format of the HTML separates the statistical data with the question itself, I design another set of functions to handle the vote of question, the number of answers to each question, and the number of view to each question with similar function set.
+
+Here is the code for second function set:
+
+```{r eval=FALSE, echo=TRUE}
+statsResult =
+  function(x)
+  {
+    list(question_vote = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[1]],
+         answer_number = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[2]],
+         question_view = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[3]])
+  }
+
+
+getStatsResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[starts-with(@id, 'question-summary')]", statsResult)
+  }
+```
+
+```{r}
+statsResult =
+  function(x)
+  {
+    list(question_vote = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[1]],
+         answer_number = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[2]],
+         question_view = xpathSApply(x, './/span[@class = "s-post-summary--stats-item-number"]', xmlValue, trim = TRUE)[[3]])
+  }
+
+
+getStatsResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[starts-with(@id, 'question-summary')]", statsResult)
+  }
+```
+
+For each question, we handle the answer attributes and comment attributes with similar function set
+
+Here is the code used for the remaining function sets:
+
+```{r eval=FALSE, echo=TRUE}
+AnsResult =
+  function(x)
+  {
+    list(answer_poster = xpathSApply(x, './/a[starts-with(@href, "/users/")]', xmlValue, trim = TRUE),
+         answer_post_time = xpathSApply(x, ".//time[@itemprop = 'dateCreated']/@datetime")[[1]],
+         answer_text = xpathSApply(x, ".//div[@class = 's-prose js-post-body']", xmlValue, trim = TRUE)
+    )
+  }
+
+
+getAnsResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class='answercell post-layout--right']", AnsResult)
+  }
+```
+
+```{r eval=FALSE, echo=TRUE}
+CommentResult = 
+  function(x)
+  {
+    list(comment_poster = xpathSApply(x, ".//a[@class = 'comment-user']", xmlValue, trim = TRUE),
+         comment_post_time = xpathSApply(x, ".//span[@class = 'relativetime-clean']", xmlValue, trim = TRUE),
+         comment_content = xpathSApply(x, ".//span[@class = 'comment-copy']", xmlValue, trim = TRUE))
+  }
+
+getCommentResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class='comment-text  js-comment-text-and-form']", CommentResult)
+  }
+```
+
+```{r}
+AnsResult =
+  function(x)
+  {
+    list(answer_poster = xpathSApply(x, './/a[starts-with(@href, "/users/")]', xmlValue, trim = TRUE),
+         answer_post_time = xpathSApply(x, ".//time[@itemprop = 'dateCreated']/@datetime")[[1]],
+         answer_text = xpathSApply(x, ".//div[@class = 's-prose js-post-body']", xmlValue, trim = TRUE)
+    )
+  }
+
+
+getAnsResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class='answercell post-layout--right']", AnsResult)
+  }
+```
+
+```{r}
+CommentResult = 
+  function(x)
+  {
+    list(comment_poster = xpathSApply(x, ".//a[@class = 'comment-user']", xmlValue, trim = TRUE),
+         comment_post_time = xpathSApply(x, ".//span[@class = 'relativetime-clean']", xmlValue, trim = TRUE),
+         comment_content = xpathSApply(x, ".//span[@class = 'comment-copy']", xmlValue, trim = TRUE))
+  }
+
+getCommentResults = 
+  function(doc)
+  {
+    xpathApply(doc, "//div[@class='comment-text  js-comment-text-and-form']", CommentResult)
+  }
+```
+
+Based on assignment requirement, function to obtain the next page URL and last page URL are designed as well.
+
+Here is the code for getNextURL function and getLastURL function:
+
+```{r eval=FALSE, echo=TRUE}
+getNextURL =
+function(doc)
+{
+    nxt = getNodeSet(doc, "//a[@rel='next']")
+    if(length(nxt) == 0)
+        return(character())
+
+    getRelativeURL(xmlGetAttr(nxt[[1]], "href"), "https://stackoverflow.com/questions/tagged/r?tab=newest&pagesize=50")    
+}
+```
+
+```{r eval=FALSE, echo=TRUE}
+getLastURL = 
+  function(doc)
+  {
+    last = getNodeSet(doc, "//a[starts-with(@title, 'Go to page')]")
+    
+    if(length(last) == 0)
+        return(character())
+    
+    getRelativeURL(xmlGetAttr(last[[length(last) - 1]], "href"), "https://stackoverflow.com/questions/tagged/r?tab=newest&pagesize=50")  
+  }
+```
+
+
+```{r}
+getNextURL =
+function(doc)
+{
+    nxt = getNodeSet(doc, "//a[@rel='next']")
+    if(length(nxt) == 0)
+        return(character())
+
+    getRelativeURL(xmlGetAttr(nxt[[1]], "href"), "https://stackoverflow.com/questions/tagged/r?tab=newest&pagesize=50")    
+}
+```
+
+```{r}
+getLastURL = 
+  function(doc)
+  {
+    last = getNodeSet(doc, "//a[starts-with(@title, 'Go to page')]")
+    
+    if(length(last) == 0)
+        return(character())
+    
+    getRelativeURL(xmlGetAttr(last[[length(last) - 1]], "href"), "https://stackoverflow.com/questions/tagged/r?tab=newest&pagesize=50")  
+  }
+```
+
+Now I implement the first two sets of function and use helper function to generate a dataframe to hold all attributes' values related to questions. Specific operation code could be check in the code appendix.
+
+Here is the function code:
+
+```{r eval=FALSE, echo=TRUE}
+SOFScraping = 
+  function(max = 50)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    website = "https://stackoverflow.com/questions/tagged/r"
+    additional_condition = "?tab=newest&pagesize=50"
+    complete_website = paste(website, additional_condition, sep = "")
+    p1 = getForm(complete_website,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getPageResults(doc)
+    
+    # Get First 3 Pages Results
+    count = 1
+    while (length(nxtURL <- getNextURL(doc)) && count < 3){
+      Sys.sleep(1)
+      
+      page = getForm(nxtURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+      doc = htmlParse(page)
+      ans = c(ans, getPageResults(doc))
+      
+      count = count + 1
+    }
+    
+    # Last Page Results
+    LastPageURL = getLastURL(doc)
+    Sys.sleep(1)
+    page = getForm(LastPageURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    doc = htmlParse(page)
+    ans = c(ans, getPageResults(doc))
+    
+    ans
+  }
+```
+
+```{r eval=FALSE, echo=TRUE}
+SOFScrapingStat = 
+  function(max = 50)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    website = "https://stackoverflow.com/questions/tagged/r"
+    additional_condition = "?tab=newest&pagesize=50"
+    complete_website = paste(website, additional_condition, sep = "")
+    p1 = getForm(complete_website,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getStatsResults(doc)
+    
+    # Get First 3 Pages Results
+    count = 1
+    while (length(nxtURL <- getNextURL(doc)) && count < 3){
+      Sys.sleep(1)
+      
+      page = getForm(nxtURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+      doc = htmlParse(page)
+      ans = c(ans, getStatsResults(doc))
+      
+      count = count + 1
+    }
+    
+    # Last Page Results
+    LastPageURL = getLastURL(doc)
+    Sys.sleep(1)
+    page = getForm(LastPageURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    doc = htmlParse(page)
+    ans = c(ans, getStatsResults(doc))
+    
+    ans
+  }
+```
+
+```{r}
+SOFScraping = 
+  function(max = 50)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    website = "https://stackoverflow.com/questions/tagged/r"
+    additional_condition = "?tab=newest&pagesize=50"
+    complete_website = paste(website, additional_condition, sep = "")
+    p1 = getForm(complete_website,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getPageResults(doc)
+    
+    # Get First 3 Pages Results
+    count = 1
+    while (length(nxtURL <- getNextURL(doc)) && count < 3){
+      Sys.sleep(1)
+      
+      page = getForm(nxtURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+      doc = htmlParse(page)
+      ans = c(ans, getPageResults(doc))
+      
+      count = count + 1
+    }
+    
+    # Last Page Results
+    LastPageURL = getLastURL(doc)
+    Sys.sleep(1)
+    page = getForm(LastPageURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    doc = htmlParse(page)
+    ans = c(ans, getPageResults(doc))
+    
+    ans
+  }
+```
+
+```{r include=FALSE}
+test_res = SOFScraping()
+```
+
+```{r}
+SOFScrapingStat = 
+  function(max = 50)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    website = "https://stackoverflow.com/questions/tagged/r"
+    additional_condition = "?tab=newest&pagesize=50"
+    complete_website = paste(website, additional_condition, sep = "")
+    p1 = getForm(complete_website,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getStatsResults(doc)
+    
+    # Get First 3 Pages Results
+    count = 1
+    while (length(nxtURL <- getNextURL(doc)) && count < 3){
+      Sys.sleep(1)
+      
+      page = getForm(nxtURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+      doc = htmlParse(page)
+      ans = c(ans, getStatsResults(doc))
+      
+      count = count + 1
+    }
+    
+    # Last Page Results
+    LastPageURL = getLastURL(doc)
+    Sys.sleep(1)
+    page = getForm(LastPageURL,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    doc = htmlParse(page)
+    ans = c(ans, getStatsResults(doc))
+    
+    ans
+  }
+```
+
+```{r include=FALSE}
+test_stats = SOFScrapingStat()
+```
+
+```{r}
+# dataframe conversion
+PageDataframeGenerate = 
+  function(page, stat)
+  {
+question_title = c()
+question_text = c()
+tags = c()
+date = c()
+username = c()
+reputation_score = c()
+answer_URL = c()
+
+question_vote = c()
+answer_number = c()
+question_view = c()
+
+for (i in 1:length(page)){
+  question_vote = append(question_vote, stat[[i]]$question_vote)
+  answer_number = append(answer_number, stat[[i]]$answer_number)
+  question_view = append(question_view, stat[[i]]$question_view)
+  question_title = append(question_title, page[[i]]$question_title)
+  question_text = append(question_text, page[[i]]$question_text)
+  tags = append(tags, paste(page[[i]]$tags, collapse = " "))
+  date = append(date, page[[i]]$date[[1]])
+  username = append(username, page[[i]]$username)
+  reputation_score = append(reputation_score, page[[i]]$reputation_score)
+  answer_URL = append(answer_URL, page[[i]]$answerURL)
+}
+
+PageDataframe = data.frame(question_title, question_text, tags, date, username, reputation_score, answer_URL, question_vote, answer_number, question_view)
+  }
+
+result = PageDataframeGenerate(test_res, test_stats)
+```
+
+Here is the first few rows of the final dataframe:
+
+```{r}
+head(result)
+```
+
+The handle of answers and comments use list as the data structure to hold the result.
+
+Here is the function code used:
+
+```{r eval=FALSE}
+# handle answer part information
+SOFScrapingAns = 
+  function(AnsURL)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    web_header = "https://stackoverflow.com"
+    answer_web = paste(web_header, AnsURL, sep = "")
+    p1 = getForm(answer_web,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getAnsResults(doc)
+    
+    ans
+  }
+```
+
+```{r eval=FALSE}
+# handle comment part information
+SOFScrapingCom = 
+  function(AnsURL)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    web_header = "https://stackoverflow.com"
+    answer_web = paste(web_header, AnsURL, sep = "")
+    p1 = getForm(answer_web,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getCommentResults(doc)
+    
+    ans
+  }
+```
+
+```{r}
+# handle answer part information
+SOFScrapingAns = 
+  function(AnsURL)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    web_header = "https://stackoverflow.com"
+    answer_web = paste(web_header, AnsURL, sep = "")
+    p1 = getForm(answer_web,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getAnsResults(doc)
+    
+    ans
+  }
+```
+
+```{r include=FALSE}
+TAnsResult = c()
+for (i in 1:10){
+  curr_result = SOFScrapingAns(result$answer_URL[[i]])
+  TAnsResult = c(TAnsResult, curr_result)
+}
+```
+
+Just like previous demonstration, first few rows of answers and comments are displayed here:
+
+```{r}
+head(TAnsResult)
+```
+
+```{r}
+# handle comment part information
+SOFScrapingCom = 
+  function(AnsURL)
+    {
+    # Basic Setup
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"
+    acceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+    web_header = "https://stackoverflow.com"
+    answer_web = paste(web_header, AnsURL, sep = "")
+    p1 = getForm(answer_web,
+                .opts = list(followlocation = TRUE,
+                             verbose = TRUE,
+                             httpheader = c(Accept = acceptHeader),
+                             useragent = user_agent,
+                             ssl.verifypeer = FALSE)
+             )
+    
+    # Question Exploration
+    doc = htmlParse(p1)
+    ans = getCommentResults(doc)
+    
+    ans
+  }
+```
+
+```{r include=FALSE}
+TComResult = c()
+for (i in 1:10){
+  curr_result = SOFScrapingCom(result$answer_URL[[i]])
+  TComResult = c(TComResult, curr_result)
+}
+```
+
+```{r}
+head(TComResult)
+```
+
+More specific code could be checked in the code appendix.
+
+## Code Appendix
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```
+
+
+
